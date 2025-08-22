@@ -50,7 +50,7 @@ repos:
     rev: v1.3.0
     hooks:
       - id: mypy
-        additional_dependencies: [types-all]
+        additional_dependencies: [types-requests, types-redis, types-pyyaml]
         args: [--ignore-missing-imports]
         exclude: ^(tests/|docs/|scripts/)
 

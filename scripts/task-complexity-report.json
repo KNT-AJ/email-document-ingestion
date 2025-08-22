@@ -1,0 +1,211 @@
+{
+  "meta": {
+    "generatedAt": "2025-08-21T20:42:13.714Z",
+    "tasksAnalyzed": 25,
+    "thresholdScore": 5,
+    "projectName": "Your Project Name",
+    "usedResearch": true
+  },
+  "complexityAnalysis": [
+    {
+      "taskId": 1,
+      "taskTitle": "Set up project structure and environment",
+      "complexityScore": 7,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "List all steps required to initialize a Python project repository for a scalable backend: create directory structure (api, workers, models, services, utils), set up requirements.txt with FastAPI, Celery, SQLAlchemy, Alembic, Redis, structlog/loguru, Typer, implement configuration management with pydantic BaseSettings and .env support, and ensure best practices for maintainability and scalability.",
+      "reasoning": "This task involves multiple foundational steps, including directory setup, dependency management, configuration, and environment variable handling. Each step requires attention to best practices for maintainability and scalability, making it moderately complex and suitable for 6 subtasks."
+    },
+    {
+      "taskId": 2,
+      "taskTitle": "Set up PostgreSQL database and models",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down the process of setting up PostgreSQL with SQLAlchemy and Alembic: define models for emails, documents, ocr_runs, document_pages; create migration scripts; implement connection pooling; add utility functions for common operations; and ensure schema aligns with PRD section 6.",
+      "reasoning": "Defining models, migrations, and connection handling for a relational database is a critical and error-prone process, especially when aligning with a detailed PRD. It requires careful planning and validation, justifying a high complexity score and 5 clear subtasks."
+    },
+    {
+      "taskId": 3,
+      "taskTitle": "Implement blob storage service",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Detail the steps to implement a blob storage service supporting S3 and local filesystem: design upload/download/check functions, implement SHA256 deduplication, handle errors with retry logic, and abstract storage backend for development and production.",
+      "reasoning": "Supporting multiple storage backends, deduplication, and robust error handling introduces significant complexity, especially when ensuring reliability and maintainability. Five subtasks will cover the main implementation challenges."
+    },
+    {
+      "taskId": 4,
+      "taskTitle": "Set up Redis and Celery configuration",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Enumerate the steps to configure Redis and Celery: set up broker and result backend, configure task routes and concurrency, implement retry and dead-letter queues, create base task classes with logging, and set up scheduled tasks with Celery beat.",
+      "reasoning": "Integrating Redis and Celery for distributed task processing requires careful configuration for reliability and scalability, including error handling and logging. Five subtasks are needed to address these areas."
+    },
+    {
+      "taskId": 5,
+      "taskTitle": "Implement Gmail API authentication",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "List the steps to implement Gmail OAuth2 authentication: set up Google API client, implement token obtain/refresh/validate functions, securely store credentials, handle token expiration, and follow Gmail Python quickstart best practices.",
+      "reasoning": "OAuth2 authentication involves multiple security-sensitive steps, including token management and secure storage, which are prone to implementation errors. Five subtasks will ensure coverage of all critical aspects."
+    },
+    {
+      "taskId": 6,
+      "taskTitle": "Implement Gmail label management",
+      "complexityScore": 6,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down Gmail label management: implement functions to list, create, and assign labels; handle label ID/name conversion; and create utilities for CLI and worker usage.",
+      "reasoning": "Label management is straightforward but requires attention to Gmail API nuances and utility function design. Four subtasks are sufficient for this medium-complexity task."
+    },
+    {
+      "taskId": 7,
+      "taskTitle": "Implement Gmail watch setup for push notifications",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Detail the steps to set up Gmail API watch for push notifications: implement users.watch API, configure Google Pub/Sub topic and subscription, grant publisher role, create start/stop functions, and follow Gmail push notification guide.",
+      "reasoning": "Setting up push notifications involves multiple cloud services, permissions, and API interactions, making it complex and requiring five subtasks for reliable implementation."
+    },
+    {
+      "taskId": 8,
+      "taskTitle": "Implement Gmail message fetching and parsing",
+      "complexityScore": 8,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "List all steps to fetch and parse Gmail messages: implement fetch by ID/query, parse headers and body (HTML/plain), extract attachments, handle MIME types and encodings, implement pagination, and create utility functions.",
+      "reasoning": "Parsing emails and attachments involves handling various formats, encodings, and edge cases, which increases complexity. Six subtasks will ensure all aspects are covered."
+    },
+    {
+      "taskId": 9,
+      "taskTitle": "Implement email persistence service",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down email persistence: implement functions to store metadata and body, handle duplicate detection, create query utilities, ensure encoding handling, and validate against database schema.",
+      "reasoning": "Persisting emails requires careful handling of duplicates, encodings, and database interactions. Five subtasks are appropriate for this high-priority task."
+    },
+    {
+      "taskId": 10,
+      "taskTitle": "Implement document extraction and storage",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Enumerate steps for document extraction: extract attachments, compute SHA256 hashes, check for duplicates, store in blob storage, create document records with metadata, and validate file types.",
+      "reasoning": "Extracting and storing documents involves multiple steps with potential for errors, especially with deduplication and file type validation. Five subtasks will address these challenges."
+    },
+    {
+      "taskId": 11,
+      "taskTitle": "Implement Mistral Document AI OCR integration",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "List all steps to integrate Mistral Document AI OCR: implement API integration, submit documents, handle responses, store raw JSON in blob storage, extract structured content and metrics.",
+      "reasoning": "Integrating with an external OCR API and handling structured responses requires careful design and error handling. Five subtasks will cover the main implementation areas."
+    },
+    {
+      "taskId": 12,
+      "taskTitle": "Implement Google Document AI integration",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down Google Document AI integration: set up Python client, submit documents, handle responses, store raw JSON in blob storage, extract plain text/tables/key-value pairs, and calculate metrics.",
+      "reasoning": "Google Document AI integration is similar in complexity to other OCR integrations, requiring careful API handling and data extraction. Five subtasks are recommended."
+    },
+    {
+      "taskId": 13,
+      "taskTitle": "Implement Azure Document Intelligence integration",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Detail steps for Azure Document Intelligence integration: set up Python SDK, submit documents via Analyze API, poll for results, handle asynchronous responses, store raw JSON, extract structured content and metrics.",
+      "reasoning": "Azure's asynchronous API adds complexity, but the overall integration process is similar to other OCR engines. Five subtasks will ensure thorough implementation."
+    },
+    {
+      "taskId": 14,
+      "taskTitle": "Implement AWS Textract integration",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "List steps for AWS Textract integration: set up boto3 client, submit documents for analysis, handle responses, store raw JSON in blob storage, extract plain text/tables/forms, and calculate metrics.",
+      "reasoning": "AWS Textract integration requires handling multiple document types and extracting structured data, which is moderately complex and suitable for five subtasks."
+    },
+    {
+      "taskId": 15,
+      "taskTitle": "Implement open-source OCR integrations",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down open-source OCR integration: implement pytesseract and PaddleOCR functions, handle images and PDFs, convert PDFs to images, store outputs in blob storage, calculate metrics, and optimize for performance.",
+      "reasoning": "Supporting multiple open-source OCR engines and optimizing for performance adds moderate complexity, requiring five subtasks for robust implementation."
+    },
+    {
+      "taskId": 16,
+      "taskTitle": "Implement OCR run tracking and persistence",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "List steps for OCR run tracking: create/update ocr_run records, store metrics (latency, cost, confidence, etc.), handle raw JSON storage in blob, create query utilities, and update document records with best results.",
+      "reasoning": "Tracking and persisting OCR runs with metrics and updating document records involves multiple database and storage interactions, making it complex and suitable for five subtasks."
+    },
+    {
+      "taskId": 17,
+      "taskTitle": "Implement OCR engine selection policy",
+      "complexityScore": 7,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "Break down OCR selection policy implementation: compare OCR runs by metrics, implement configurable thresholds, select best run for document, and update document record.",
+      "reasoning": "Implementing a selection policy based on configurable metrics is logic-heavy but not as broad as other tasks, so four subtasks are sufficient."
+    },
+    {
+      "taskId": 18,
+      "taskTitle": "Implement OCR orchestration workflow",
+      "complexityScore": 8,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "List steps for OCR orchestration: implement Celery task for workflow, run primary engine, evaluate results, run fallbacks if needed, select winner, handle errors/retries, and update document record.",
+      "reasoning": "Orchestrating multiple OCR engines with error handling and retries is complex, requiring careful workflow design and five subtasks."
+    },
+    {
+      "taskId": 19,
+      "taskTitle": "Implement email ingestion workflow",
+      "complexityScore": 8,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Break down email ingestion workflow: implement Celery tasks for syncing Gmail messages, persisting emails, extracting/storing attachments, dispatching OCR jobs, handle errors/retries, and deduplication.",
+      "reasoning": "Coordinating multiple asynchronous tasks for ingestion, deduplication, and error handling is complex and warrants six subtasks for clarity and reliability."
+    },
+    {
+      "taskId": 20,
+      "taskTitle": "Implement FastAPI webhook for Gmail push notifications",
+      "complexityScore": 7,
+      "recommendedSubtasks": 4,
+      "expansionPrompt": "List steps for webhook implementation: create FastAPI endpoint, validate JWT token, extract historyId, enqueue sync task, and handle errors as per Gmail push notification guide.",
+      "reasoning": "Implementing a secure webhook with validation and task dispatch is moderately complex, suitable for four subtasks."
+    },
+    {
+      "taskId": 21,
+      "taskTitle": "Implement reprocessing endpoints and CLI commands",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down reprocessing implementation: create FastAPI endpoints for documents/emails, implement CLI commands with Typer, allow engine specification, handle validation/errors, and enqueue reprocessing tasks.",
+      "reasoning": "Supporting both API and CLI interfaces for reprocessing with validation and task dispatch adds moderate complexity, requiring five subtasks."
+    },
+    {
+      "taskId": 22,
+      "taskTitle": "Implement backfill functionality",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "List steps for backfill functionality: implement CLI command for historical emails, specify time range, list emails via Gmail API, enqueue fetch/OCR tasks, handle pagination, and report progress.",
+      "reasoning": "Backfilling historical data involves API usage, pagination, and progress reporting, which is moderately complex and suitable for five subtasks."
+    },
+    {
+      "taskId": 23,
+      "taskTitle": "Implement admin CLI commands",
+      "complexityScore": 6,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "Break down admin CLI implementation: implement commands for labels, watch, backfill, reprocess, metrics; create cohesive interface with help text, error handling, validation, and confirmation prompts.",
+      "reasoning": "Admin CLI commands cover a range of operations but are mostly straightforward, requiring five subtasks for completeness."
+    },
+    {
+      "taskId": 24,
+      "taskTitle": "Implement logging and metrics collection",
+      "complexityScore": 7,
+      "recommendedSubtasks": 5,
+      "expansionPrompt": "List steps for logging and metrics: set up structured logging with structlog/loguru, redact sensitive info, implement metrics collection for OCR engines, create FastAPI dashboard endpoint, and utility functions for logging patterns.",
+      "reasoning": "Implementing structured logging and metrics collection for observability is moderately complex, especially with dashboard integration, requiring five subtasks."
+    },
+    {
+      "taskId": 25,
+      "taskTitle": "Implement comprehensive error handling and retry mechanisms",
+      "complexityScore": 9,
+      "recommendedSubtasks": 6,
+      "expansionPrompt": "Break down error handling and retry implementation: create error classes for failure types, implement retry with exponential backoff, set up dead-letter queues, ensure contextual logging, implement error taxonomy (INGEST/EMAIL, STORAGE, OCR), and define actions for each error type.",
+      "reasoning": "Comprehensive error handling and retry mechanisms are critical for system reliability and involve multiple layers, including taxonomy, logging, and dead-letter queues. Six subtasks are needed to cover all aspects thoroughly."
+    }
+  ]
+}

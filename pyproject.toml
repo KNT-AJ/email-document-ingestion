@@ -1,0 +1,152 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools-scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "email-document-ingestion"
+version = "0.1.0"
+description = "A comprehensive system for ingesting, processing, and extracting text from emails and their attachments using multiple OCR engines"
+readme = "README.md"
+authors = [
+    { name = "Development Team", email = "dev@example.com" }
+]
+license = { file = "LICENSE" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "fastapi==0.95.1",
+    "uvicorn==0.22.0",
+    "celery==5.2.7",
+    "sqlalchemy==2.0.12",
+    "alembic==1.10.4",
+    "redis==4.5.5",
+    "pydantic==1.10.7",
+    "structlog==23.1.0",
+    "typer==0.9.0",
+    "python-dotenv==1.0.0",
+    "psycopg2-binary==2.9.6",
+    "boto3==1.28.0",
+    "google-auth==2.16.0",
+    "google-auth-oauthlib==1.0.0",
+    "google-api-python-client==2.86.0",
+    "azure-ai-documentintelligence==1.0.0b1",
+    "pillow==9.5.0",
+    "python-multipart==0.0.6",
+    "cryptography==40.0.2",
+    "aiofiles==23.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.3.1",
+    "pytest-cov==4.0.0",
+    "pytest-asyncio==0.21.0",
+    "black==23.3.0",
+    "isort==5.12.0",
+    "flake8==6.0.0",
+    "mypy==1.3.0",
+    "pre-commit==3.3.1",
+    "bandit==1.7.4",
+    "safety==2.3.5",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/email-document-ingestion"
+"Bug Reports" = "https://github.com/yourusername/email-document-ingestion/issues"
+"Source" = "https://github.com/yourusername/email-document-ingestion"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api*", "workers*", "models*", "services*", "utils*", "config*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "alembic.*",
+    "celery.*",
+    "uvicorn.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--strict-markers --strict-config --cov=./ --cov-report=term-missing"
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow tests",
+]
+
+[tool.coverage.run]
+source = ["api", "workers", "models", "services", "utils", "config"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/conftest.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

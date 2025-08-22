@@ -1,0 +1,34 @@
+[Unit]
+Description=Celery Beat Scheduler for Email & Document Ingestion System
+After=network.target redis.service postgresql.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=celery
+Group=celery
+WorkingDirectory=/app
+Environment="PATH=/app/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="ENVIRONMENT=production"
+
+# Celery beat command
+ExecStart=/app/venv/bin/celery -A workers.celery_app beat \
+    --hostname=beat@%%h \
+    --loglevel=INFO \
+    --schedule=/var/lib/celery/beat-schedule
+
+# Restart on failure
+Restart=always
+RestartSec=10
+
+# Resource limits
+MemoryLimit=512M
+CPUQuota=100%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=celery-beat
+
+[Install]
+WantedBy=multi-user.target

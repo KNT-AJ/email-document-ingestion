@@ -1,0 +1,207 @@
+
+# PRD — Email & Document Ingestion MVP (Python-First, No User Auth)
+
+## 1) Objective
+
+Centralize all supplier/logistics/customs **emails and attachments** into a single datastore, convert every attachment to **searchable text** via a **multi-engine OCR orchestrator**, and persist **raw engine outputs + metrics** so Stage 2 can classify, extract fields, and build “Order Intelligence” without re-architecting.
+
+* **Python-first constraint:** All services implemented in Python (SDKs or REST calls from Python workers). (Gmail API has official Python client; Gmail push via Pub/Sub is supported; each OCR engine exposes Python SDKs or simple HTTP APIs.) ([Google for Developers][1], [Google Cloud][2], [GitHub][3], [AWS Documentation][4])
+
+## 2) Scope
+
+### In scope (MVP, ingestion only)
+
+* **Gmail ingestion** (labels filtered) with message metadata, body text, attachments download. (Gmail Python quickstart + push notifications via Pub/Sub.) ([Google for Developers][1])
+* **Attachment storage** (blob store) + hash-based deduplication.
+* **OCR orchestration**: Primary + fallbacks (configurable); store **full raw JSON** + plain text for each run:
+
+  * **Mistral Document AI OCR** (primary; layout-aware, structured text) ([Mistral AI Documentation][5])
+  * **Cloud fallback**: **Google Document AI** *or* **Azure Document Intelligence** *or* **AWS Textract** (tables/forms/layout) ([Google Cloud][2], [Microsoft Learn][6], [Boto3][7])
+  * **Open-source baseline**: **pytesseract** (Tesseract) and/or **PaddleOCR** ([PyPI][8], [PaddleOCR][9])
+* **Persistence**: emails, documents, ocr\_runs (+ optional document\_pages).
+* **Observability**: per-engine latency/cost/coverage/confidence; retries; backfill.
+* **No end-user authentication** (see §10), but service auth to external APIs is still required.
+
+### Out of scope (Stage 2, for later)
+
+* LLM classification + structured field extraction (orders, lines, totals, HS codes, dims, contacts).
+* Case linking & order status (pending/production/shipping/customs).
+* Dashboards, automation, ClickUp sync, SLA alerts.
+
+## 3) Success criteria (MVP)
+
+* **Coverage:** ≥98% of targeted attachments produce **non-empty extracted text**.
+* **Traceability:** Every attachment links to a Gmail `message_id` and at least one OCR run with stored raw JSON.
+* **Searchability:** Full-text search over email bodies + extracted\_text is possible.
+* **Cost/latency telemetry:** Per-engine metrics captured to support a future bake-off/auto-routing.
+
+## 4) Architecture (Python-only)
+
+* **Services (all Python):**
+
+  * **Ingest API** (FastAPI): webhook for Gmail push notifications; endpoints for manual reprocess.
+  * **Ingest Worker** (Celery): fetch messages/attachments, persist, enqueue OCR jobs.
+  * **OCR Orchestrator** (Celery tasks): run primary → fallback engines; compute metrics; pick “best”.
+  * **Admin CLI** (Typer): configure labels, run backfills, reprocess, rotate keys.
+* **Data**: PostgreSQL (SQLAlchemy/Alembic), blob storage (S3-compatible or local).
+* **Queues**: Redis (Celery broker/result).
+* **External SDKs/APIs (all callable from Python):**
+
+  * Gmail API (watch/pull), Google Pub/Sub for push; Python quickstart exists; push flow requires granting publisher role to Gmail’s service account. ([Google for Developers][1])
+  * OCR engines & Python SDKs/REST (Mistral; Google Document AI; Azure Document Intelligence; AWS Textract; pytesseract/PaddleOCR). ([Mistral AI Documentation][5], [Google Cloud][2], [GitHub][3], [AWS Documentation][4], [PyPI][8], [PaddleOCR][9])
+
+## 5) Detailed workflows
+
+### 5.1 New-mail flow (push-first, poll-fallback)
+
+1. **Watch**: Configure Gmail **users.watch** for labels (e.g., `Orders/China`, `Orders/Logistics`). Gmail pushes to Pub/Sub; our FastAPI receives the subscription push and enqueues a sync task. (Pub/Sub topic must grant **[gmail-api-push@system.gserviceaccount.com](mailto:gmail-api-push@system.gserviceaccount.com)** Publisher.) ([Google for Developers][10])
+2. **Sync**: Worker calls Gmail API to list changed threads, then fetches full messages for the labels. ([Google for Developers][1])
+3. **Persist email**: Insert into `emails` (headers, addresses, subject, sent\_at, body\_text (HTML→text), `gmail_message_id`, `thread_id`).
+4. **Attachments**: For each, compute **sha256**; if new, store blob; create `documents` row.
+5. **OCR dispatch**: Enqueue OCR orchestration job per new `documents.id`.
+
+*(If push isn’t feasible initially, schedule IDLE/poll every N minutes; still Python.)* ([Google for Developers][1])
+
+### 5.2 OCR orchestration (per attachment)
+
+1. **Primary engine**: **Mistral Document AI OCR** (returns structured content). Store raw JSON; derive plain text for `documents.extracted_text`. ([Mistral AI Documentation][5])
+2. **Evaluate**: If `status=success` and either (a) confidence threshold met (if provided by engine), or (b) `pages_parsed == page_count`, **accept**; else continue.
+3. **Fallback A (cloud)**: Run **Google Document AI** (Python client), or **Azure Document Intelligence** (Analyze API is async; poll Operation-Location), or **AWS Textract** (AnalyzeDocument for tables/forms/layout). Store raw JSON. ([Google Cloud][2], [Microsoft Learn][6], [Boto3][7])
+4. **Fallback B (open-source)**: Run **pytesseract** and/or **PaddleOCR** for simple scans or offline/cost-control; store outputs. ([PyPI][8], [PaddleOCR][9])
+5. **Select winner**: Choose **best\_ocr\_run\_id** using policy (see §7). Persist winner’s text to `documents.extracted_text`. Keep all runs for audits/Stage 2.
+
+### 5.3 Backfill & reprocess
+
+* **Backfill**: CLI lists emails newer\_than\:Nd for configured labels, enqueues fetch+OCR.
+* **Reprocess**: CLI/endpoint accepts `document_id` or `email_id` to re-enqueue OCR, optionally forcing a specific engine/version for comparisons.
+
+## 6) Data model (MVP + OCR)
+
+### `emails`
+
+* `id` (PK), `gmail_message_id` (unique), `thread_id`, `from`, `to`, `cc`, `bcc`,
+  `subject`, `sent_at` (UTC), `body_text` (plain), `ingested_at`
+
+### `documents`
+
+* `id` (PK), `email_id` (FK→emails), `file_name`, `file_type` (MIME), `file_uri` (blob),
+  `sha256` (unique), `size_bytes`, `page_count` (nullable), `languages` (nullable),
+  `has_embedded_text` (bool), `text_hash` (nullable),
+  `best_ocr_run_id` (FK→ocr\_runs), `extracted_text` (winner’s plain text), `ingested_at`
+
+### `ocr_runs`
+
+* `id` (PK), `document_id` (FK),
+  `engine` (enum: `mistral|google_docai|azure_docintel|aws_textract|tesseract|paddleocr`),
+  `engine_version` (string), `status` (`success|failed|partial`), `error_code`, `error_message`,
+  **metrics**: `confidence_mean` (nullable), `pages_parsed`, `word_count`, `table_count`,
+  `latency_ms`, `cost_cents`,
+  `raw_json_uri` (blob path to full engine response), `created_at`
+
+### `document_pages` (optional, but future-proof)
+
+* `id` (PK), `document_id` (FK), `page_index`, `text`,
+  `bbox_json`, `tables_json`, `kv_pairs_json` (when available from engines)
+
+**Why these fields?** Google DocAI, Azure Document Intelligence, and AWS Textract all can return **layout/tables/kv**; storing full JSON enables lossless re-parsing later. (Azure’s Analyze is async; Textract’s AnalyzeDocument exposes forms/tables; DocAI client supports Python.) ([Microsoft Learn][6], [Boto3][7], [Google Cloud][2])
+
+## 7) OCR selection policy (configurable)
+
+* **Default chain:** `mistral` → (`google_docai` **or** `azure_docintel` **or** `aws_textract`) → (`tesseract`/`paddleocr`). ([Mistral AI Documentation][5], [Google Cloud][2], [Microsoft Learn][6], [Boto3][7], [PyPI][8], [PaddleOCR][9])
+* **Score rubric (first satisfied wins):**
+
+  1. Highest `confidence_mean` (if engine provides) above threshold, **and** `pages_parsed == page_count`.
+  2. Else most pages parsed with non-empty text.
+  3. Else highest `word_count` with ≥1 table detected (if available).
+  4. Tie-break: lowest `latency_ms`; if still tied, lowest `cost_cents`.
+* **Persist ALL runs**; write winner’s text to `documents.extracted_text`; set `best_ocr_run_id`.
+
+## 8) Interfaces (Python only)
+
+### 8.1 Ingest API (FastAPI)
+
+* `POST /gmail/push` — Pub/Sub push handler; validates JWT; enqueues sync for changed historyIds. (Per Gmail push guide.) ([Google for Developers][10])
+* `POST /reprocess/document/{id}` — re-OCR a document; optional `engine` param.
+* `POST /reprocess/email/{id}` — re-OCR all attachments on an email.
+
+### 8.2 Admin CLI (Typer)
+
+* `labels:list|ensure|assign` (resolve label IDs; Gmail label ID vs name nuance is common) ([Stack Overflow][11])
+* `watch:start|stop` (configure Gmail users.watch + Pub/Sub topic) ([Google for Developers][10])
+* `backfill --since Ndays`
+* `reprocess --document-id … [--engine …]`
+* `metrics:dump --window 7d`
+
+## 9) Observability & ops
+
+* **Logging**: JSON logs (structlog/loguru). Redact secrets by default.
+* **Metrics**: per engine — `requests`, `success_rate`, `latency_ms_p95`, `pages_parsed/page_count`, `cost_cents`.
+* **Dash (simple)**: A read-only FastAPI page (no login) summarizing counts, failures, and cost by day.
+* **Retries**: Celery exponential backoff for transient HTTP/429/5xx; dead-letter queue for manual reprocess.
+* **Backfill**: CLI to ingest past N days; useful while enabling push. (Setup steps for Pub/Sub permissions in Gmail push doc.) ([Google for Developers][10])
+
+## 10) Security & privacy (with **no user auth**)
+
+* **Network-only protection**: Bind FastAPI admin endpoints to `127.0.0.1` by default; if remote, restrict by IP allowlist/reverse proxy.
+* **Service credentials only**: OAuth2 to Gmail, API keys for OCR engines, cloud creds for blob store—rotated via `.env`/secret mounts. (Gmail Python quickstart covers basic auth flow for service.) ([Google for Developers][1])
+* **At-rest encryption**: Turn on server-side encryption for blobs and Postgres disk.
+* **PII**: Supplier bank details may appear; never log raw pages or PII; store engine raw JSON in blobs, not logs.
+
+## 11) Configuration (env vars)
+
+* `GMAIL_LABELS=Orders/China,Orders/Logistics`
+* `GMAIL_PUSH_ENABLED=true|false`, `GCP_PROJECT`, `PUBSUB_TOPIC`, `PUBSUB_SUBSCRIPTION` (for push) ([Google for Developers][10])
+* Blob store: `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
+* DB/queue: `DATABASE_URL`, `REDIS_URL`
+* OCR: `OCR_PRIMARY=mistral`, `OCR_FALLBACK_A=google_docai`, `OCR_FALLBACK_B=tesseract`, thresholds (`OCR_CONFIDENCE_MIN`, `OCR_LATENCY_SLO_MS`)
+* Cost: per-engine per-page estimate for telemetry (manual until Stage 2 auto-routing).
+
+## 12) Performance targets
+
+* **Throughput:** ≥1,000 emails/day, typical attachment ≤20 MB.
+* **Latency:** P50 ≤ 15s per 3-page PDF on primary; P95 ≤ 90s including fallbacks.
+* **Storage:** Dedup via `sha256` to avoid re-OCR; store one raw JSON per engine run.
+
+## 13) Error taxonomy & behaviors
+
+* **INGEST/EMAIL**: Gmail 401/403 (token expired) → refresh; 404 thread → skip; malformed MIME → quarantine.
+* **STORAGE**: Blob put failure → retry 3x; checksum mismatch → re-download.
+* **OCR**: `engine_unavailable`, `timeout`, `quota_exceeded`, `unsupported_mime`, `image_quality_low`.
+* **ACTION**: Retries with backoff; on permanent failure create `ocr_runs.status=failed` with `error_code`; document remains searchable via email body.
+
+## 14) Test plan (MVP)
+
+* **Corpus**: 200–500 pages across quotes/PI/invoices, packing lists, bookings, customs; include scans, mobile photos; EN/zh mix.
+* **Quality**: Extraction **coverage**, table detection proxy (table\_count>0 on known table docs), word\_count sanity.
+* **Ops**: Backfill N days; verify dedupe; forced failures (retries log).
+* **Push**: Validate Pub/Sub watch end-to-end (permissions, delivery, ack). ([Google for Developers][10])
+
+## 15) Stage 2 (for context; not built now)
+
+* LLM classification (doc type) + **structured field extraction** (supplier, PO/PI/Invoice #, totals, line items, dims/weights, pickup, forwarder, HS codes, contacts, quote validity).
+* **Order Case** linking; “pending orders”, “production started?”, “shipping quote expiring within 30 days?” checks.
+* Dashboards & ClickUp sync.
+
+## 16) Python library references
+
+* **Gmail API (Python quickstart)**; **Gmail push (Pub/Sub) setup**. ([Google for Developers][1])
+* **Mistral Document AI — Basic OCR** (mistral-ocr-latest). ([Mistral AI Documentation][5])
+* **Google Document AI — Python client** (process\_document sample). ([Google Cloud][2], [GitHub][12])
+* **Azure Document Intelligence — Python SDK & Analyze response**. ([GitHub][3], [Microsoft Learn][6])
+* **AWS Textract — boto3 AnalyzeDocument**. ([AWS Documentation][4], [Boto3][7])
+* **pytesseract / PaddleOCR** (Python packages). ([PyPI][8], [PaddleOCR][9])
+
+---
+
+[1]: https://developers.google.com/workspace/gmail/api/quickstart/python?utm_source=chatgpt.com "Python quickstart | Gmail | Google for Developers"
+[2]: https://cloud.google.com/document-ai/docs/process-documents-client-libraries?utm_source=chatgpt.com "Process documents by using client libraries - Google Cloud"
+[3]: https://github.com/Azure/azure-sdk-for-python/blob/main/sdk/documentintelligence/azure-ai-documentintelligence/README.md?utm_source=chatgpt.com "Azure AI Document Intelligence client library for Python"
+[4]: https://docs.aws.amazon.com/code-library/latest/ug/python_3_textract_code_examples.html?utm_source=chatgpt.com "Amazon Textract examples using SDK for Python (Boto3)"
+[5]: https://docs.mistral.ai/capabilities/document_ai/basic_ocr/?utm_source=chatgpt.com "Basic OCR | Mistral AI"
+[6]: https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/concept/analyze-document-response?view=doc-intel-4.0.0&utm_source=chatgpt.com "Document Intelligence APIs analyze document response - Azure AI ..."
+[7]: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/textract/client/analyze_document.html?utm_source=chatgpt.com "analyze_document - Boto3 1.40.11 documentation"
+[8]: https://pypi.org/project/pytesseract/?utm_source=chatgpt.com "pytesseract · PyPI"
+[9]: https://www.paddleocr.ai/main/en/version3.x/pipeline_usage/OCR.html?utm_source=chatgpt.com "Usage Tutorial - PaddleOCR Documentation"
+[10]: https://developers.google.com/workspace/gmail/api/guides/push?utm_source=chatgpt.com "Push Notifications | Gmail | Google for Developers"
+[11]: https://stackoverflow.com/questions/45139147/add-a-label-with-gmail-api-with-python?utm_source=chatgpt.com "Add a label with GMAIL API with python - Stack Overflow"
+[12]: https://github.com/GoogleCloudPlatform/python-docs-samples/blob/main/documentai/snippets/process_document_sample.py?utm_source=chatgpt.com "python-docs-samples/documentai/snippets/process_document_sample.py at ..."

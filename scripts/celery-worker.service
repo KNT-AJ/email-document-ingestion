@@ -1,0 +1,40 @@
+[Unit]
+Description=Celery Worker for Email & Document Ingestion System
+After=network.target redis.service postgresql.service
+Requires=redis.service
+
+[Service]
+Type=simple
+User=celery
+Group=celery
+WorkingDirectory=/app
+Environment="PATH=/app/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="ENVIRONMENT=production"
+
+# Celery worker command
+ExecStart=/app/venv/bin/celery -A workers.celery_app worker \
+    --hostname=worker@%%h \
+    --queues=default,email_ingestion,document_processing \
+    --concurrency=4 \
+    --loglevel=INFO \
+    --prefetch-multiplier=1 \
+    --without-gossip \
+    --without-mingle \
+    --without-heartbeat \
+    --task-events
+
+# Restart on failure
+Restart=always
+RestartSec=10
+
+# Resource limits
+MemoryLimit=1G
+CPUQuota=400%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=celery-worker
+
+[Install]
+WantedBy=multi-user.target
